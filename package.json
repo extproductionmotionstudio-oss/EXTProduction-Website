@@ -1,0 +1,27 @@
+{
+  "name": "ext-production-portfolio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
+    "@studio-freight/react-lenis": "^0.0.47",
+    "firebase": "^12.18.0",
+    "framer-motion": "^13.1.1",
+    "next": "14.2.5",
+    "react": "^18",
+    "react-dom": "^18",
+    "swiper": "^14.1.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "eslint": "^8",
+    "eslint-config-next": "14.2.5"
+  }
+}
