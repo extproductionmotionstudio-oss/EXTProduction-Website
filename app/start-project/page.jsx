@@ -70,6 +70,15 @@ export default function StartProject() {
     return () => clearTimeout(timer);
   }, [formData, status]);
 
+  // Instantly scroll to top when Thank You screen displays
+  useEffect(() => {
+    if (status === 'success') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [status]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus('submitting');
@@ -103,6 +112,9 @@ export default function StartProject() {
       }).catch(err => console.warn("Telegram notification send notice:", err));
 
       setStatus('success');
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
     } catch (error) {
       console.error("Error submitting form: ", error);
       setStatus('error');
