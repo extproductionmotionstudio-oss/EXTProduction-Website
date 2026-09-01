@@ -18,7 +18,7 @@ export default function TrustedBy() {
         viewport={{ once: false, amount: 0.2 }}
         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       >
-        Trusted by innovative companies
+        Trusted by industry leaders
       </motion.p>
       <motion.div 
         className="marquee-container"
