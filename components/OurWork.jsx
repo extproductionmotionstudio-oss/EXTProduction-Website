@@ -160,7 +160,8 @@ export default function OurWork({ onOpenModal }) {
         } else {
           try { vid.pause(); } catch (_) {}
           if (!isCardActive) {
-            vid.style.opacity = '0';
+            vid.style.opacity = '0'; 
+            try { vid.currentTime = 0; } catch (_) {}
           }
         }
       }
@@ -322,7 +323,7 @@ export default function OurWork({ onOpenModal }) {
                 }
 
                 const isYt = isYouTube(v.url);
-                const optimizedVideoUrl = `${getOptimizedVideoUrl(v.url, { isVertical: true })}#t=2.0`;
+                const optimizedVideoUrl = getOptimizedVideoUrl(v.url, { isVertical: true });
                 const posterUrl = getVideoPosterUrl(v.url, { isVertical: true });
 
                 return (
@@ -486,7 +487,7 @@ export default function OurWork({ onOpenModal }) {
             {filteredWorks.map((v, index) => {
               const isYt = isYouTube(v.url);
               const isActive = index === activeIndex;
-              const optimizedVideoUrl = `${getOptimizedVideoUrl(v.url, { isVertical: false })}#t=2.0`;
+              const optimizedVideoUrl = getOptimizedVideoUrl(v.url, { isVertical: false });
               const posterUrl = getVideoPosterUrl(v.url, { isVertical: false });
 
               return (
