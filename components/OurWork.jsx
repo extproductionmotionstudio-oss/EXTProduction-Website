@@ -99,12 +99,21 @@ export default function OurWork({ onOpenModal }) {
     return url && (url.includes('youtube.com') || url.includes('youtu.be'));
   };
 
-  const filteredWorks = works.filter(v => {
-    if (filter === 'all') {
-      return v.category !== 'vertical';
-    }
-    return v.category === filter;
-  });
+  const filteredWorks = works
+    .filter(v => {
+      if (filter === 'all') {
+        return v.category !== 'vertical';
+      }
+      return v.category === filter;
+    })
+    .sort((a, b) => {
+      const orderA = typeof a.order === 'number' ? a.order : (typeof a.orderIndex === 'number' ? a.orderIndex : 9999);
+      const orderB = typeof b.order === 'number' ? b.order : (typeof b.orderIndex === 'number' ? b.orderIndex : 9999);
+      if (orderA !== orderB) return orderA - orderB;
+      const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+      const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+      return timeB - timeA;
+    });
   const filtersWrapperRef = useRef(null);
 
   const handleFilterChange = (category, e) => {
@@ -145,24 +154,29 @@ export default function OurWork({ onOpenModal }) {
 
       if (vid) {
         if (isCardActive && isInView && !userPausedRef.current) {
+          vid.style.opacity = '1';
           safePlay(vid, 'active-auto');
           setIsPlaying(true);
         } else {
           try { vid.pause(); } catch (_) {}
           if (!isCardActive) {
-            try { vid.currentTime = 0; } catch (_) {}
+            vid.style.opacity = '0';
           }
         }
       }
 
       if (iframe) {
         if (isCardActive && isInView && !userPausedRef.current) {
+          iframe.style.opacity = '1';
           if (userInteractedRef.current) {
             iframe.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute' }), '*');
           }
           iframe.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'playVideo' }), '*');
           setIsPlaying(true);
         } else {
+          if (!isCardActive) {
+            iframe.style.opacity = '0';
+          }
           iframe.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo' }), '*');
         }
       }
@@ -308,10 +322,28 @@ export default function OurWork({ onOpenModal }) {
                 }
 
                 const isYt = isYouTube(v.url);
-                const optimizedVideoUrl = `${getOptimizedVideoUrl(v.url, { isVertical: true })}#t=0.001`;
+                const optimizedVideoUrl = `${getOptimizedVideoUrl(v.url, { isVertical: true })}#t=2.0`;
+                const posterUrl = getVideoPosterUrl(v.url, { isVertical: true });
 
                 return (
                   <div key={`${filter}-${v.id}`} className={cardClass} onClick={(e) => handleCardClick(e, v, i)}>
+                    {posterUrl && (
+                      <img 
+                        src={posterUrl} 
+                        alt={v.title}
+                        loading="eager"
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          borderRadius: 'inherit',
+                          zIndex: 0
+                        }}
+                      />
+                    )}
                     {isYt ? (
                       <iframe
                         ref={(el) => iframeRefs.current[v.id] = el}
@@ -322,14 +354,25 @@ export default function OurWork({ onOpenModal }) {
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
-                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: offset === 0 ? 'auto' : 'none' }}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          pointerEvents: offset === 0 ? 'auto' : 'none',
+                          zIndex: 1,
+                          opacity: offset === 0 ? 1 : 0,
+                          transition: 'opacity 0.3s ease'
+                        }}
                       ></iframe>
                     ) : (
                       <video
                         ref={(el) => videoRefs.current[v.id] = el}
                         src={optimizedVideoUrl}
+                        poster={posterUrl}
                         controls={false}
-                        preload="metadata"
+                        preload="auto"
                         loop
                         playsInline
                         muted
@@ -342,11 +385,16 @@ export default function OurWork({ onOpenModal }) {
                           width: '100%',
                           height: '100%',
                           objectFit: 'cover',
-                          borderRadius: 'inherit'
+                          borderRadius: 'inherit',
+                          zIndex: 1,
+                          opacity: offset === 0 ? 1 : 0,
+                          transition: 'opacity 0.3s ease'
                         }}
                       />
                     )}
-                    <div className="p3d-play"></div>
+                    {offset === 0 && !isPlaying && (
+                      <div className="p3d-play" style={{ zIndex: 10 }}></div>
+                    )}
                     {offset === 0 && (
                       <div 
                         className="video-title-badge"
@@ -438,7 +486,8 @@ export default function OurWork({ onOpenModal }) {
             {filteredWorks.map((v, index) => {
               const isYt = isYouTube(v.url);
               const isActive = index === activeIndex;
-              const optimizedVideoUrl = `${getOptimizedVideoUrl(v.url, { isVertical: false })}#t=0.001`;
+              const optimizedVideoUrl = `${getOptimizedVideoUrl(v.url, { isVertical: false })}#t=2.0`;
+              const posterUrl = getVideoPosterUrl(v.url, { isVertical: false });
 
               return (
                 <SwiperSlide key={`${filter}-${v.id}`}>
@@ -453,9 +502,28 @@ export default function OurWork({ onOpenModal }) {
                         width: '100%', 
                         height: '100%', 
                         background: '#0a0a0a', 
-                        pointerEvents: 'auto' 
+                        pointerEvents: 'auto',
+                        overflow: 'hidden',
+                        borderRadius: '16px'
                       }}
                     >
+                      {posterUrl && (
+                        <img 
+                          src={posterUrl} 
+                          alt={v.title}
+                          loading="eager"
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            borderRadius: 'inherit',
+                            zIndex: 0
+                          }}
+                        />
+                      )}
                       {isYt ? (
                         <iframe
                           ref={(el) => iframeRefs.current[v.id] = el}
@@ -466,14 +534,25 @@ export default function OurWork({ onOpenModal }) {
                           frameBorder="0"
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
-                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            pointerEvents: 'none',
+                            zIndex: 1,
+                            opacity: isActive ? 1 : 0,
+                            transition: 'opacity 0.3s ease'
+                          }}
                         ></iframe>
                       ) : (
                         <video
                           ref={(el) => videoRefs.current[v.id] = el}
                           src={optimizedVideoUrl}
+                          poster={posterUrl}
                           controls={false}
-                          preload="metadata"
+                          preload="auto"
                           playsInline
                           loop
                           muted
@@ -496,44 +575,49 @@ export default function OurWork({ onOpenModal }) {
                             position: 'absolute',
                             top: 0,
                             left: 0,
-                            borderRadius: 'inherit'
+                            borderRadius: 'inherit',
+                            zIndex: 1,
+                            opacity: isActive ? 1 : 0,
+                            transition: 'opacity 0.3s ease'
                           }}
                         />
                       )}
 
                       {/* Play Button Overlay - Smoothly shown ONLY when paused */}
-                      <div 
-                        className="play-overlay" 
-                        style={{
-                          position: 'absolute',
-                          top: '50%',
-                          left: '50%',
-                          transform: 'translate(-50%, -50%)',
-                          width: '68px',
-                          height: '68px',
-                          borderRadius: '50%',
-                          background: 'rgba(255, 255, 255, 0.45)',
-                          backdropFilter: 'blur(10px)',
-                          WebkitBackdropFilter: 'blur(10px)',
-                          border: '1px solid rgba(255, 255, 255, 0.7)',
-                          display: (isActive && !isPlaying) ? 'flex' : 'none',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          pointerEvents: 'none',
-                          zIndex: 10,
-                          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.25)',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        <div style={{
-                          width: 0,
-                          height: 0,
-                          borderTop: '10px solid transparent',
-                          borderBottom: '10px solid transparent',
-                          borderLeft: '16px solid #111',
-                          marginLeft: '5px'
-                        }}></div>
-                      </div>
+                      {isActive && !isPlaying && (
+                        <div 
+                          className="play-overlay" 
+                          style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            width: '68px',
+                            height: '68px',
+                            borderRadius: '50%',
+                            background: 'rgba(255, 255, 255, 0.7)',
+                            backdropFilter: 'blur(10px)',
+                            WebkitBackdropFilter: 'blur(10px)',
+                            border: '1px solid rgba(255, 255, 255, 0.8)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            pointerEvents: 'none',
+                            zIndex: 10,
+                            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.25)',
+                            transition: 'opacity 0.25s ease, transform 0.25s ease'
+                          }}
+                        >
+                          <div style={{
+                            width: 0,
+                            height: 0,
+                            borderTop: '10px solid transparent',
+                            borderBottom: '10px solid transparent',
+                            borderLeft: '16px solid #111',
+                            marginLeft: '5px'
+                          }}></div>
+                        </div>
+                      )}
 
                       {/* Premium White Frosted Glass Video Title Badge */}
                       <div 

@@ -94,6 +94,14 @@ export default function StartProject() {
           submittedAt: serverTimestamp()
         });
       }
+      
+      // Dispatch real-time Telegram Bot notification (non-blocking)
+      fetch('/api/notify-telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      }).catch(err => console.warn("Telegram notification send notice:", err));
+
       setStatus('success');
     } catch (error) {
       console.error("Error submitting form: ", error);
@@ -172,10 +180,10 @@ export default function StartProject() {
                   <label htmlFor="website">Company website? *</label>
                   <p className="field-hint">(example : chatgpt.com)</p>
                   <input
-                    type="url"
+                    type="text"
                     id="website"
                     name="website"
-                    placeholder="Enter your @company website"
+                    placeholder="Enter your @company website (e.g. chatgpt.com)"
                     required
                     value={formData.website}
                     onChange={handleChange}

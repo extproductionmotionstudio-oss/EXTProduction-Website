@@ -78,9 +78,20 @@ export const metadata = {
     },
   },
   icons: {
-    icon: '/logo.jpg',
-    shortcut: '/logo.jpg',
-    apple: '/logo.jpg',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/logo.jpg', type: 'image/jpeg', sizes: '512x512' },
+      { url: '/icon.png', type: 'image/png', sizes: '192x192' },
+    ],
+    shortcut: ['/favicon.ico'],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/logo.jpg', sizes: '180x180', type: 'image/jpeg' },
+    ],
+  },
+  manifest: '/site.webmanifest',
+  verification: {
+    google: 'google1432a999baeca1df',
   },
 };
 
@@ -99,7 +110,12 @@ const jsonLdSchema = {
       },
       description:
         'Leading motion design studio working with startups, SaaS, AI, and fintech companies to produce high-converting motion films, 3D product demos, launch videos, and ads.',
-      sameAs: [],
+      sameAs: [
+        'https://x.com/extproduction',
+        'https://www.youtube.com/@extproductionmotionstudio',
+        'https://www.instagram.com/madebyext/',
+        'https://www.linkedin.com/in/extproduction-motion-studio-6aa335361/'
+      ],
     },
     {
       '@type': 'WebSite',
@@ -176,6 +192,11 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+        <link rel="apple-touch-icon" href="/logo.jpg" />
+        <link rel="manifest" href="/site.webmanifest" />
+        <meta name="theme-color" content="#000000" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSchema) }}

@@ -1510,7 +1510,7 @@ section {
 }
 
 .work-swiper-container .swiper-slide:not(.swiper-slide-active) {
-    opacity: 0.22;
+    opacity: 0.65;
 }
 
 /* Custom 3D Stacked Slider (Vertical Videos) */
@@ -1579,7 +1579,7 @@ section {
     content: '';
     position: absolute;
     inset: 0;
-    background-color: rgba(0, 0, 0, 0.15);
+    background-color: transparent;
     transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1);
     z-index: 2;
     pointer-events: none;
@@ -1606,25 +1606,25 @@ section {
 
 .stacked-card.left-1 {
     transform: translateX(-280px) scale(0.88) rotateY(28deg) translateZ(0);
-    opacity: 0.32;
+    opacity: 0.75;
     z-index: 8;
 }
 
 .stacked-card.right-1 {
     transform: translateX(280px) scale(0.88) rotateY(-28deg) translateZ(0);
-    opacity: 0.32;
+    opacity: 0.75;
     z-index: 8;
 }
 
 .stacked-card.left-2 {
     transform: translateX(-480px) scale(0.72) rotateY(38deg) translateZ(0);
-    opacity: 0.25;
+    opacity: 0.45;
     z-index: 6;
 }
 
 .stacked-card.right-2 {
     transform: translateX(480px) scale(0.72) rotateY(-38deg) translateZ(0);
-    opacity: 0.25;
+    opacity: 0.45;
     z-index: 6;
 }
 
@@ -1693,8 +1693,13 @@ section {
     transform: translate(-50%, -50%) scale(1.1);
 }
 
-.stacked-card.active.playing .p3d-play {
-    opacity: 0.07;
+.stacked-card.active.playing .p3d-play,
+.stacked-card.playing .p3d-play,
+.video-card.playing .play-overlay {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translate(-50%, -50%) scale(0.6) !important;
 }
 
 .p3d-nav {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc, addDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, deleteDoc, doc, addDoc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { getVideoPosterUrl } from '../../lib/videoOptimizer';
 import Link from 'next/link';
 
 const DEFAULT_HERO_VIDEO = "https://res.cloudinary.com/dpxpczyhh/video/upload/v1781972444/landscape__jupv1z.mp4";
@@ -28,6 +29,8 @@ export default function AdminDashboard() {
 
   const [works, setWorks] = useState([]);
   const [loadingWorks, setLoadingWorks] = useState(true);
+  const [worksCategoryFilter, setWorksCategoryFilter] = useState('all'); // 'all', 'explainers', 'keynotes', 'vertical'
+  const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
 
   const [newWork, setNewWork] = useState({
     title: '',
@@ -143,6 +146,64 @@ export default function AdminDashboard() {
     }
   };
 
+  // Sort works by custom order (or fallback to createdAt desc)
+  const getSortedWorks = (items) => {
+    return [...items].sort((a, b) => {
+      const orderA = typeof a.order === 'number' ? a.order : (typeof a.orderIndex === 'number' ? a.orderIndex : 9999);
+      const orderB = typeof b.order === 'number' ? b.order : (typeof b.orderIndex === 'number' ? b.orderIndex : 9999);
+      if (orderA !== orderB) return orderA - orderB;
+      const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+      const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+      return timeB - timeA;
+    });
+  };
+
+  const handleMoveWork = async (index, direction, currentList) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= currentList.length) return;
+
+    setIsUpdatingOrder(true);
+    try {
+      const newItems = [...currentList];
+      const itemToMove = newItems[index];
+      newItems.splice(index, 1);
+      newItems.splice(targetIndex, 0, itemToMove);
+
+      const batch = writeBatch(db);
+      newItems.forEach((item, idx) => {
+        const docRef = doc(db, 'works', item.id);
+        batch.update(docRef, { order: idx + 1 });
+      });
+
+      await batch.commit();
+    } catch (err) {
+      console.error("Error updating video order:", err);
+      alert("Error reordering videos: " + err.message);
+    }
+    setIsUpdatingOrder(false);
+  };
+
+  const handleMakeFront = async (workId, currentList) => {
+    setIsUpdatingOrder(true);
+    try {
+      const targetItem = currentList.find(w => w.id === workId);
+      if (!targetItem) return;
+      const otherItems = currentList.filter(w => w.id !== workId);
+      const reordered = [targetItem, ...otherItems];
+
+      const batch = writeBatch(db);
+      reordered.forEach((item, idx) => {
+        const docRef = doc(db, 'works', item.id);
+        batch.update(docRef, { order: idx + 1 });
+      });
+      await batch.commit();
+    } catch (err) {
+      console.error("Error setting front video:", err);
+      alert("Error setting front video: " + err.message);
+    }
+    setIsUpdatingOrder(false);
+  };
+
   const handleAddWork = async (e) => {
     e.preventDefault();
     if (!newWork.title || !newWork.url) return alert("Please fill all fields");
@@ -151,6 +212,7 @@ export default function AdminDashboard() {
     try {
       await addDoc(collection(db, 'works'), {
         ...newWork,
+        order: 1, // Set as front video by default
         createdAt: serverTimestamp()
       });
       setNewWork({ title: '', category: 'explainers', url: '' });
@@ -801,39 +863,232 @@ export default function AdminDashboard() {
           </div>
 
           <div className="works-list" style={{ flex: '2', minWidth: '400px' }}>
-            <h2>Current Portfolio</h2>
-            <div className="table-container glass" style={{ marginTop: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '15px' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '700' }}>Portfolio Video Order & Arrangement</h2>
+                <p style={{ margin: '4px 0 0', fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
+                  Arrange which video appears in <strong>#1 Front</strong>, 2nd, 3rd, etc. on your homepage tabs.
+                </p>
+              </div>
+              {isUpdatingOrder && (
+                <span style={{ fontSize: '0.85rem', color: '#2563eb', fontWeight: '600' }}>
+                  ⏳ Updating order...
+                </span>
+              )}
+            </div>
+
+            {/* Category Filter Pills */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              <button
+                type="button"
+                className={`cta-button ${worksCategoryFilter === 'all' ? 'primary-cta' : 'secondary-cta'}`}
+                style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                onClick={() => setWorksCategoryFilter('all')}
+              >
+                All Videos ({works.length})
+              </button>
+              <button
+                type="button"
+                className={`cta-button ${worksCategoryFilter === 'explainers' ? 'primary-cta' : 'secondary-cta'}`}
+                style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                onClick={() => setWorksCategoryFilter('explainers')}
+              >
+                Explainers ({works.filter(w => w.category === 'explainers').length})
+              </button>
+              <button
+                type="button"
+                className={`cta-button ${worksCategoryFilter === 'keynotes' ? 'primary-cta' : 'secondary-cta'}`}
+                style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                onClick={() => setWorksCategoryFilter('keynotes')}
+              >
+                Keynotes ({works.filter(w => w.category === 'keynotes').length})
+              </button>
+              <button
+                type="button"
+                className={`cta-button ${worksCategoryFilter === 'vertical' ? 'primary-cta' : 'secondary-cta'}`}
+                style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                onClick={() => setWorksCategoryFilter('vertical')}
+              >
+                Vertical 3D ({works.filter(w => w.category === 'vertical').length})
+              </button>
+            </div>
+
+            <div className="table-container glass">
               {loadingWorks ? (
                 <div className="loading-state">Loading portfolio...</div>
-              ) : works.length === 0 ? (
-                <div className="empty-state">No portfolio videos added yet.</div>
               ) : (
-                <table className="excel-table">
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th>Category</th>
-                      <th>URL</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {works.map((work) => (
-                      <tr key={work.id}>
-                        <td className="font-medium">{work.title}</td>
-                        <td><span className="badge">{work.category}</span></td>
-                        <td>
-                          <a href={work.url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {work.url}
-                          </a>
-                        </td>
-                        <td>
-                          <button onClick={() => handleDeleteWork(work.id)} className="delete-btn">Delete</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                (() => {
+                  const filteredList = worksCategoryFilter === 'all' 
+                    ? works 
+                    : works.filter(w => w.category === worksCategoryFilter);
+                  const sortedList = getSortedWorks(filteredList);
+
+                  if (sortedList.length === 0) {
+                    return <div className="empty-state">No portfolio videos in this category.</div>;
+                  }
+
+                  return (
+                    <table className="excel-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '100px', textAlign: 'center' }}>Position</th>
+                          <th style={{ width: '90px' }}>Preview</th>
+                          <th>Title & Category</th>
+                          <th style={{ width: '220px', textAlign: 'center' }}>Arrange Position</th>
+                          <th style={{ width: '80px', textAlign: 'center' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedList.map((work, idx) => {
+                          const posterUrl = getVideoPosterUrl(work.url, { isVertical: work.category === 'vertical' });
+                          const isFirst = idx === 0;
+                          const isLast = idx === sortedList.length - 1;
+
+                          return (
+                            <tr key={work.id} style={{ background: isFirst ? 'rgba(37, 99, 235, 0.04)' : 'transparent' }}>
+                              <td style={{ textAlign: 'center' }}>
+                                {isFirst ? (
+                                  <span style={{ 
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '4px 10px', 
+                                    borderRadius: '9999px', 
+                                    background: 'rgba(16, 185, 129, 0.15)', 
+                                    color: '#059669', 
+                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    fontWeight: '700',
+                                    fontSize: '0.82rem'
+                                  }}>
+                                    ★ #1 Front
+                                  </span>
+                                ) : (
+                                  <span style={{ fontWeight: '600', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                                    #{idx + 1}
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                <div style={{ 
+                                  width: '70px', 
+                                  height: '42px', 
+                                  borderRadius: '8px', 
+                                  overflow: 'hidden', 
+                                  background: '#0f172a',
+                                  position: 'relative'
+                                }}>
+                                  {posterUrl ? (
+                                    <img 
+                                      src={posterUrl} 
+                                      alt={work.title} 
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                    />
+                                  ) : (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.7rem' }}>
+                                      🎬 Video
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td>
+                                <div style={{ fontWeight: '600', color: '#0f172a', marginBottom: '4px' }}>
+                                  {work.title}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span className="badge" style={{ textTransform: 'capitalize' }}>
+                                    {work.category === 'explainers' ? 'Product Explainer' : work.category === 'keynotes' ? 'Product Keynote' : 'Vertical 3D'}
+                                  </span>
+                                  <a 
+                                    href={work.url} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    style={{ fontSize: '0.78rem', color: '#2563eb', textDecoration: 'none' }}
+                                  >
+                                    View link ↗
+                                  </a>
+                                </div>
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveWork(idx, -1, sortedList)}
+                                    disabled={isFirst || isUpdatingOrder}
+                                    title="Move position Up"
+                                    style={{
+                                      padding: '5px 9px',
+                                      borderRadius: '8px',
+                                      border: '1px solid #cbd5e1',
+                                      background: isFirst ? '#f1f5f9' : '#ffffff',
+                                      cursor: isFirst ? 'not-allowed' : 'pointer',
+                                      fontSize: '0.82rem',
+                                      fontWeight: '600',
+                                      color: isFirst ? '#94a3b8' : '#0f172a',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                  >
+                                    ⬆️ Up
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveWork(idx, 1, sortedList)}
+                                    disabled={isLast || isUpdatingOrder}
+                                    title="Move position Down"
+                                    style={{
+                                      padding: '5px 9px',
+                                      borderRadius: '8px',
+                                      border: '1px solid #cbd5e1',
+                                      background: isLast ? '#f1f5f9' : '#ffffff',
+                                      cursor: isLast ? 'not-allowed' : 'pointer',
+                                      fontSize: '0.82rem',
+                                      fontWeight: '600',
+                                      color: isLast ? '#94a3b8' : '#0f172a',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                  >
+                                    ⬇️ Down
+                                  </button>
+
+                                  {!isFirst && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleMakeFront(work.id, sortedList)}
+                                      disabled={isUpdatingOrder}
+                                      title="Set as #1 Front Video"
+                                      style={{
+                                        padding: '5px 9px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                                        background: 'rgba(16, 185, 129, 0.08)',
+                                        color: '#059669',
+                                        cursor: 'pointer',
+                                        fontSize: '0.8rem',
+                                        fontWeight: '600',
+                                        transition: 'all 0.2s ease'
+                                      }}
+                                    >
+                                      ★ Make Front
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <button 
+                                  onClick={() => handleDeleteWork(work.id)} 
+                                  className="delete-btn"
+                                  style={{ padding: '6px 12px', fontSize: '0.82rem' }}
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  );
+                })()
               )}
             </div>
           </div>
