@@ -96,7 +96,7 @@ export default function Hero({ onOpenModal }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
         >
-          High-converting motion design, product demos, and brand films crafted for high-growth tech companies.
+           We create high-converting motion films that make your products easy to understand, hard to ignore, and built to sell.
         </motion.p>
 
         {/* Action Buttons */}
